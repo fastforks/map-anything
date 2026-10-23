@@ -1,3 +1,19 @@
+> **You are on `cuda-kernels`.** Research fork of the upstream `map-anything` repository (base `3d10cf7`, 2026-10; `main` mirrors upstream). `cuda-kernels` = upstream plus custom CUDA kernels and fast paths (fused attention/MLP kernels (vendored fastbb)). Prebuilt binaries are tied to the torch/CUDA build they were made with; the vendored fastbb cudnn-frontend paths need `pip install nvidia-cudnn-frontend`.
+>
+> Licence, as upstream (see LICENSE)
+
+RTX 5060 Ti 16 GB, torch cu130, 2026-10-23. Median of N runs after warm-up, fixed seeds. Speed-up columns: vs upstream + flags / vs upstream. Peak memory = torch peak allocated / reserved.
+
+Flags in the 'upstream + flags' row (no source change): cudnn.benchmark, TF32 (bf16 autocast kept; fp16 autocast tried: slower).
+
+| version | 9 views ms | 23 views ms | speed-up at A (vs flags / vs upstream) | speed-up at B | peak MB at A (alloc / reserved) | startup / first call / new size | accuracy |
+|---|---|---|---|---|---|---|---|
+| upstream (bf16 autocast) | 1751 | 4804 | 1.00x | 1.00x | 8460 / 9050 (A); 10660 / 11550 (B) | not measured | ETH3D (13 sets) metric absrel 0.1176 |
+| upstream + flags (cudnn.benchmark, TF32; bf16 autocast kept) | 1786 | 4739 | 1.00x / 0.98x | 1.00x / 1.01x | 16100 (A) | first call +5.1 s | absrel 0.1176 (fp16 variant: 0.1178, and slower) |
+| **cuda-kernels** | 556 | 1596 | 3.21x / 3.15x | 2.97x / 3.01x | 5010 / 6030 (A) | not measured | absrel 0.1176; median-aligned 0.0353 for all three |
+
+---
+
 <div align="center">
 <h1>MapAnything: Universal Feed-Forward Metric <br>3D Reconstruction</h1>
 <a href="https://map-anything.github.io/assets/MapAnything.pdf"><img src="https://img.shields.io/badge/Paper-blue" alt="Paper"></a>
