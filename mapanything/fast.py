@@ -14,7 +14,7 @@ Changes vs upstream `infer` (bf16 autocast, memory_efficient_inference=True):
 - dense DPT head: fp16 channels-last; the final 1x1 conv and the adaptors stay fp32. Pose / scale heads and the geometric
   input encoders stay fp32 (as upstream: autocast disabled there).
 variant "friendly": plain PyTorch ops (SDPA attention, fp32-accumulate GEMMs / convs) -> ONNX / TensorRT exportable.
-variant "max": + fastbb flash attention (fp16 accumulate), fp16-accumulate cuBLAS GEMMs, fp16-accumulate cuDNN convs.
+variant "max": + vendored fastbb flash attention (fp16 accumulate), fp16-accumulate cuBLAS GEMMs, fp16-accumulate cuDNN convs.
 """
 import math
 
@@ -51,7 +51,7 @@ class _Conv1x1Fp32(nn.Module):
 
 class FastMapAnything:
     def __init__(self, model, variant="friendly", dense_chunk=8, **over):
-        from fastbb.vit import FastViT
+        from .fastbb_vendored.vit import FastViT
 
         dense_chunk = over.pop("dense_chunk", dense_chunk)
         cfg = dict(VARIANTS[variant], **over)
@@ -77,7 +77,7 @@ class FastMapAnything:
         assert last.kernel_size == (1, 1)
         dh[1].conv2[2] = _Conv1x1Fp32(last)  # final 1x1 conv stays fp32
         if cfg["conv_hacc"]:
-            from fastbb.cudnn_conv import patch_convs
+            from .fastbb_vendored.cudnn_conv import patch_convs
 
             patch_convs(dh)
         model._encode_n_views = self._encode_n_views
@@ -97,7 +97,7 @@ class FastMapAnything:
         fv = self.fv
 
         def fwd(x, xpos=None):
-            from fastbb.vit import fp16_accumulate
+            from .fastbb_vendored.vit import fp16_accumulate
 
             with torch.autocast("cuda", enabled=False), fp16_accumulate(self.g_info is not False):
                 return self._block(b, x.float() if self.stream32 else x.half(), self.g_info)
